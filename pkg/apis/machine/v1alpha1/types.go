@@ -737,9 +737,16 @@ type OpenStackMachineClassSpec struct {
 	KeyName          string                  `json:"keyName"`
 	SecurityGroups   []string                `json:"securityGroups"`
 	Tags             map[string]string       `json:"tags,omitempty"`
-	NetworkID        string                  `json:"networkID"`
+	NetworkID        string                  `json:"networkID,omitempty"`
+	Networks         []OpenStackNetwork      `json:"networks,omitempty"`
 	SecretRef        *corev1.SecretReference `json:"secretRef,omitempty"`
-	PodNetworkCidr   string                  `json:"podNetworkCidr"`
+	PodNetworkCidr   string                  `json:"podNetworkCidr,omitempty"`
+}
+
+type OpenStackNetwork struct {
+	Id         string `json:"id,omitempty"` // takes priority before name
+	Name       string `json:"name,omitempty"`
+	PodNetwork bool   `json:"podNetwork,omitempty"`
 }
 
 /********************** AWSMachineClass APIs ***************/

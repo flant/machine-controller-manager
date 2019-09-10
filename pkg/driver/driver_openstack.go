@@ -24,7 +24,9 @@ import (
 	"net/http"
 	"strings"
 
-	v1alpha1 "github.com/gardener/machine-controller-manager/pkg/apis/machine/v1alpha1"
+	"github.com/gophercloud/gophercloud/openstack/networking/v2/networks"
+
+	"github.com/gardener/machine-controller-manager/pkg/apis/machine/v1alpha1"
 	"github.com/gardener/machine-controller-manager/pkg/metrics"
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
@@ -61,6 +63,7 @@ func (d *OpenStackDriver) Create() (string, string, error) {
 	keyName := d.OpenStackMachineClass.Spec.KeyName
 	imageName := d.OpenStackMachineClass.Spec.ImageName
 	networkID := d.OpenStackMachineClass.Spec.NetworkID
+	specNetworks := d.OpenStackMachineClass.Spec.Networks
 	securityGroups := d.OpenStackMachineClass.Spec.SecurityGroups
 	availabilityZone := d.OpenStackMachineClass.Spec.AvailabilityZone
 	metadata := d.OpenStackMachineClass.Spec.Tags
@@ -73,6 +76,37 @@ func (d *OpenStackDriver) Create() (string, string, error) {
 		metrics.APIFailedRequestCount.With(prometheus.Labels{"provider": "openstack", "service": "nova"}).Inc()
 		return "", "", fmt.Errorf("failed to get image id for image name %s: %s", imageName, err)
 	}
+
+	nwClient, err := d.createNeutronClient()
+	if err != nil {
+		return "", "", err
+	}
+
+	var serverNetworks = make([]servers.Network, 0, 10)
+	var podNetworkIds = make(map[string]struct{}, 10)
+
+	if len(networkID) > 0 {
+		serverNetworks = append(serverNetworks, servers.Network{UUID: networkID})
+		podNetworkIds[networkID] = struct{}{}
+	} else {
+		for _, network := range specNetworks {
+			var resolvedNetworkId string
+			if len(network.Id) > 0 {
+				resolvedNetworkId = networkID
+			} else {
+				resolvedNetworkId, err = networks.IDFromName(client, network.Name)
+				if err != nil {
+					metrics.APIFailedRequestCount.With(prometheus.Labels{"provider": "openstack", "service": "neutron"}).Inc()
+					return "", "", fmt.Errorf("failed to get uuid for network name %s: %s", network.Name, err)
+				}
+			}
+			serverNetworks = append(serverNetworks, servers.Network{UUID: resolvedNetworkId})
+			if network.PodNetwork {
+				podNetworkIds[resolvedNetworkId] = struct{}{}
+			}
+		}
+	}
+
 	metrics.APIRequestCount.With(prometheus.Labels{"provider": "openstack", "service": "nova"}).Inc()
 
 	createOpts = &servers.CreateOpts{
@@ -80,7 +114,7 @@ func (d *OpenStackDriver) Create() (string, string, error) {
 		Name:             d.MachineName,
 		FlavorName:       flavorName,
 		ImageRef:         imageRef,
-		Networks:         []servers.Network{{UUID: networkID}},
+		Networks:         serverNetworks,
 		SecurityGroups:   securityGroups,
 		Metadata:         metadata,
 		UserData:         []byte(d.UserData),
@@ -102,45 +136,45 @@ func (d *OpenStackDriver) Create() (string, string, error) {
 
 	d.MachineID = d.encodeMachineID(d.OpenStackMachineClass.Spec.Region, server.ID)
 
-	nwClient, err := d.createNeutronClient()
-	if err != nil {
-		return "", "", err
-	}
-
 	err = waitForStatus(client, server.ID, []string{"BUILD"}, []string{"ACTIVE"}, 600)
 	if err != nil {
 		return "", "", fmt.Errorf("error waiting for the %q server status: %s", server.ID, err)
 	}
 
 	listOpts := &ports.ListOpts{
-		NetworkID: networkID,
-		DeviceID:  server.ID,
+		DeviceID: server.ID,
 	}
 
 	allPages, err := ports.List(nwClient, listOpts).AllPages()
 	if err != nil {
 		metrics.APIFailedRequestCount.With(prometheus.Labels{"provider": "openstack", "service": "neutron"}).Inc()
-		return "", "", fmt.Errorf("failed to get ports for network ID %s: %s", networkID, err)
+		return "", "", fmt.Errorf("failed to get ports: %s", err)
 	}
 	metrics.APIRequestCount.With(prometheus.Labels{"provider": "openstack", "service": "neutron"}).Inc()
 
 	allPorts, err := ports.ExtractPorts(allPages)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to extract ports for network ID %s: %s", networkID, err)
+		return "", "", fmt.Errorf("failed to extract ports: %s", err)
 	}
 
 	if len(allPorts) == 0 {
-		return "", "", fmt.Errorf("got an empty port list for network ID %s and server ID %s", networkID, server.ID)
+		return "", "", fmt.Errorf("got an empty port list for server ID %s", server.ID)
 	}
 
-	port, err := ports.Update(nwClient, allPorts[0].ID, ports.UpdateOpts{
-		AllowedAddressPairs: &[]ports.AddressPair{{IPAddress: podNetworkCidr}},
-	}).Extract()
-	if err != nil {
-		metrics.APIFailedRequestCount.With(prometheus.Labels{"provider": "openstack", "service": "neutron"}).Inc()
-		return "", "", fmt.Errorf("failed to update allowed address pair for port ID %s: %s", port.ID, err)
+	for _, port := range allPorts {
+		for id, _ := range podNetworkIds {
+			if port.NetworkID == id {
+				_, err := ports.Update(nwClient, port.ID, ports.UpdateOpts{
+					AllowedAddressPairs: &[]ports.AddressPair{{IPAddress: podNetworkCidr}},
+				}).Extract()
+				if err != nil {
+					metrics.APIFailedRequestCount.With(prometheus.Labels{"provider": "openstack", "service": "neutron"}).Inc()
+					return "", "", fmt.Errorf("failed to update allowed address pair for port ID %s: %s", port.ID, err)
+				}
+				metrics.APIRequestCount.With(prometheus.Labels{"provider": "openstack", "service": "neutron"}).Inc()
+			}
+		}
 	}
-	metrics.APIRequestCount.With(prometheus.Labels{"provider": "openstack", "service": "neutron"}).Inc()
 
 	return d.MachineID, d.MachineName, nil
 }

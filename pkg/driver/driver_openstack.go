@@ -94,7 +94,7 @@ func (d *OpenStackDriver) Create() (string, string, error) {
 			if len(network.Id) > 0 {
 				resolvedNetworkId = networkID
 			} else {
-				resolvedNetworkId, err = networks.IDFromName(client, network.Name)
+				resolvedNetworkId, err = networks.IDFromName(nwClient, network.Name)
 				if err != nil {
 					metrics.APIFailedRequestCount.With(prometheus.Labels{"provider": "openstack", "service": "neutron"}).Inc()
 					return "", "", fmt.Errorf("failed to get uuid for network name %s: %s", network.Name, err)

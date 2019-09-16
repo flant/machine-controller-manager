@@ -112,9 +112,7 @@ func (d *GCPDriver) Create() (string, string, error) {
 
 	var networkInterfaces = []*compute.NetworkInterface{}
 	for _, nic := range d.GCPMachineClass.Spec.NetworkInterfaces {
-		computeNIC := &compute.NetworkInterface{
-			AccessConfigs: []*compute.AccessConfig{{}},
-		}
+		computeNIC := &compute.NetworkInterface{}
 		if len(nic.Network) != 0 {
 			computeNIC.Network = fmt.Sprintf("projects/%s/global/networks/%s", project, nic.Network)
 		}

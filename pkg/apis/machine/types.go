@@ -1034,8 +1034,9 @@ type GCPMetadata struct {
 
 // GCPNetworkInterface describes network interfaces for GCP
 type GCPNetworkInterface struct {
-	Network    string
-	Subnetwork string
+	Network             string
+	Subnetwork          string
+	ProvisionExternalIP *bool
 }
 
 // GCPScheduling describes scheduling configuration for GCP.

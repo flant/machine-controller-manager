@@ -1758,6 +1758,7 @@ func Convert_machine_GCPMetadata_To_v1alpha1_GCPMetadata(in *machine.GCPMetadata
 func autoConvert_v1alpha1_GCPNetworkInterface_To_machine_GCPNetworkInterface(in *GCPNetworkInterface, out *machine.GCPNetworkInterface, s conversion.Scope) error {
 	out.Network = in.Network
 	out.Subnetwork = in.Subnetwork
+	out.ProvisionExternalIP = (*bool)(unsafe.Pointer(in.ProvisionExternalIP))
 	return nil
 }
 
@@ -1769,6 +1770,7 @@ func Convert_v1alpha1_GCPNetworkInterface_To_machine_GCPNetworkInterface(in *GCP
 func autoConvert_machine_GCPNetworkInterface_To_v1alpha1_GCPNetworkInterface(in *machine.GCPNetworkInterface, out *GCPNetworkInterface, s conversion.Scope) error {
 	out.Network = in.Network
 	out.Subnetwork = in.Subnetwork
+	out.ProvisionExternalIP = (*bool)(unsafe.Pointer(in.ProvisionExternalIP))
 	return nil
 }
 

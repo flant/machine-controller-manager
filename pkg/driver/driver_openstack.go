@@ -113,6 +113,7 @@ func (d *OpenStackDriver) Create() (string, string, error) {
 	metadata := d.OpenStackMachineClass.Spec.Tags
 	podNetworkCidr := d.OpenStackMachineClass.Spec.PodNetworkCidr
 	rootDiskSize := d.OpenStackMachineClass.Spec.RootDiskSize
+	rootDiskVolumeType := d.OpenStackMachineClass.Spec.RootDiskVolumeType
 
 	var createOpts servers.CreateOptsBuilder
 	var imageRef string
@@ -178,7 +179,7 @@ func (d *OpenStackDriver) Create() (string, string, error) {
 	}
 
 	if rootDiskSize > 0 {
-		blockDevices, err := resourceInstanceBlockDevicesV2(rootDiskSize, imageRef)
+		blockDevices, err := resourceInstanceBlockDevicesV2(rootDiskSize, rootDiskVolumeType, imageRef)
 		if err != nil {
 			return "", "", err
 		}
@@ -593,7 +594,7 @@ func strSliceContains(haystack []string, needle string) bool {
 	return false
 }
 
-func resourceInstanceBlockDevicesV2(rootDiskSize int, imageID string) ([]bootfromvolume.BlockDevice, error) {
+func resourceInstanceBlockDevicesV2(rootDiskSize int, rootDiskVolumeType string, imageID string) ([]bootfromvolume.BlockDevice, error) {
 	blockDeviceOpts := make([]bootfromvolume.BlockDevice, 1)
 	blockDeviceOpts[0] = bootfromvolume.BlockDevice{
 		UUID:                imageID,
@@ -602,6 +603,7 @@ func resourceInstanceBlockDevicesV2(rootDiskSize int, imageID string) ([]bootfro
 		DeleteOnTermination: true,
 		SourceType:          "image",
 		DestinationType:     "volume",
+		VolumeType:          rootDiskVolumeType,
 	}
 	klog.V(2).Infof("[DEBUG] Block Device Options: %+v", blockDeviceOpts)
 	return blockDeviceOpts, nil

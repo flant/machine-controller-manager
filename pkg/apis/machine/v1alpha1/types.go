@@ -731,19 +731,20 @@ type OpenStackMachineClassList struct {
 
 // OpenStackMachineClassSpec is the specification of a cluster.
 type OpenStackMachineClassSpec struct {
-	ImageID          string                  `json:"imageID"`
-	ImageName        string                  `json:"imageName"`
-	Region           string                  `json:"region"`
-	AvailabilityZone string                  `json:"availabilityZone"`
-	FlavorName       string                  `json:"flavorName"`
-	KeyName          string                  `json:"keyName"`
-	SecurityGroups   []string                `json:"securityGroups"`
-	Tags             map[string]string       `json:"tags,omitempty"`
-	NetworkID        string                  `json:"networkID"`
-	Networks         []OpenStackNetwork      `json:"networks,omitempty"`
-	SecretRef        *corev1.SecretReference `json:"secretRef,omitempty"`
-	PodNetworkCidr   string                  `json:"podNetworkCidr"`
-	RootDiskSize     int                     `json:"rootDiskSize,omitempty"` // in GB
+	ImageID            string                  `json:"imageID"`
+	ImageName          string                  `json:"imageName"`
+	Region             string                  `json:"region"`
+	AvailabilityZone   string                  `json:"availabilityZone"`
+	FlavorName         string                  `json:"flavorName"`
+	KeyName            string                  `json:"keyName"`
+	SecurityGroups     []string                `json:"securityGroups"`
+	Tags               map[string]string       `json:"tags,omitempty"`
+	NetworkID          string                  `json:"networkID"`
+	Networks           []OpenStackNetwork      `json:"networks,omitempty"`
+	SecretRef          *corev1.SecretReference `json:"secretRef,omitempty"`
+	PodNetworkCidr     string                  `json:"podNetworkCidr"`
+	RootDiskSize       int                     `json:"rootDiskSize,omitempty"` // in GB
+	RootDiskVolumeType string                  `json:"rootDiskVolumeType,omitempty"`
 }
 
 type OpenStackNetwork struct {
